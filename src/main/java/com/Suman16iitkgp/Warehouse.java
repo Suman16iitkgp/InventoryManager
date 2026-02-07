@@ -49,7 +49,7 @@ public class Warehouse {
             int newQuantity = currentQuantity-quantity;
             inventory.put(productId, newQuantity);
 
-            alertToFires = getAlertsToFire(productId, newQuantity);
+            alertToFires = getAlertsToFire(productId, newQuantity, currentQuantity);
         }
 
         if( alertToFires != null ) fireAlert(productId, alertToFires);
@@ -65,7 +65,7 @@ public class Warehouse {
         }
     }
 
-    private List<AlertToFire> getAlertsToFire(String productId, int newQuantity) {
+    private List<AlertToFire> getAlertsToFire(String productId, int newQuantity, int previousQuantity) {
 
 
         if( alertConfigs.get(productId) == null ){
@@ -75,7 +75,7 @@ public class Warehouse {
         List<AlertToFire> validAlertConfigs = new ArrayList<>();
 
         for( AlertConfig alertConfig : alertConfigs.get(productId) ){
-            if( newQuantity <= alertConfig.threshold() ){
+            if( previousQuantity > alertConfig.threshold() && newQuantity < alertConfig.threshold() ){
                 validAlertConfigs.add( new AlertToFire(alertConfig.alertListener(),productId, newQuantity ) );
             }
         }
@@ -84,13 +84,20 @@ public class Warehouse {
     }
 
     public void addLowStockAlert(String productId, int threshold, AlertListener listener) {
-        AlertConfig alertConfig = new AlertConfig(threshold, listener);
-
-        if(!alertConfigs.containsKey(productId)){
-            alertConfigs.put(productId, new ArrayList<>());
+        if( threshold <= 0 || listener == null ){
+            throw new RuntimeException("Invalid Alert");
         }
 
-        alertConfigs.get(productId).add(alertConfig);
+        synchronized (this) {
+            AlertConfig alertConfig = new AlertConfig(threshold, listener);
+
+            if(!alertConfigs.containsKey(productId)){
+                alertConfigs.put(productId, new ArrayList<>());
+            }
+
+            alertConfigs.get(productId).add(alertConfig);
+        }
+
 
     }
 
